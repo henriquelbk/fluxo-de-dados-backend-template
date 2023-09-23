@@ -1,62 +1,115 @@
-import express, { Request, Response } from 'express'
-import cors from 'cors'
-import { accounts } from './database'
-import { ACCOUNT_TYPE } from './types'
+import express, { Request, Response } from "express";
+import cors from "cors";
+import { accounts } from "./database";
+import { ACCOUNT_TYPE, TAccount } from "./types";
 
-const app = express()
+const app = express();
 
-app.use(express.json())
-app.use(cors())
+app.use(express.json());
+app.use(cors());
 
 app.listen(3003, () => {
-    console.log("Servidor rodando na porta 3003")
-})
+  console.log("Servidor rodando na porta 3003");
+});
 
 app.get("/ping", (req: Request, res: Response) => {
-    res.send("Pong!")
-})
+  res.send("Pong!");
+});
 
 app.get("/accounts", (req: Request, res: Response) => {
-    res.send(accounts)
-})
+  res.send(accounts);
+});
 
-app.get("/accounts/:id", (req: Request, res: Response) => {
-    const id = req.params.id
+// Pratica guiada começa abaixo
 
-    const result = accounts.find((account) => account.id === id) 
+app.get("/accounts/:id", (req: Request, res: Response): void => {
+  try {
+    const id: string = req.params.id;
 
-    res.status(200).send(result)
-})
+    const result: TAccount | undefined = accounts.find(
+      (account) => account.id === id
+    );
+    if (!result) {
+      throw new Error("Conta não encontrada. Verifique o 'id'.");
+    }
+    res.status(200).send(result);
+  } catch (err) {
+    if (err instanceof Error) {
+      res.send(err.message);
+    }
+  }
+});
 
 app.delete("/accounts/:id", (req: Request, res: Response) => {
-    const id = req.params.id
+  try {
+    const id: string = req.params.id;
 
-    const accountIndex = accounts.findIndex((account) => account.id === id)
+    if(id[0] !== 'a'){
+        res.statusCode = 400;
+        throw new Error("'id' inválido. Deve iniciar com a letra 'a'.")
+    }
+  
+    const accountIndex = accounts.findIndex((account) => account.id === id);
 
     if (accountIndex >= 0) {
-        accounts.splice(accountIndex, 1)
+      accounts.splice(accountIndex, 1);
     }
 
-    res.status(200).send("Item deletado com sucesso")
-})
+    res.status(200).send("Item deletado com sucesso");
 
-app.put("/accounts/:id", (req: Request, res: Response) => {
-    const id = req.params.id
+  } catch (err) {
+    if (err instanceof Error) {
+        res.send(err.message);
+      } else {
+        res.send("Erro inesperado");
+  }}
+});
 
-    const newId = req.body.id as string | undefined
-    const newOwnerName = req.body.ownerName as string | undefined
-    const newBalance = req.body.balance as number | undefined
-    const newType = req.body.type as ACCOUNT_TYPE | undefined
+app.put("/accounts/:id", (req: Request, res: Response): void => {
+    try{
+  const id: string = req.params.id;
 
-    const account = accounts.find((account) => account.id === id) 
+  const newId = req.body.id as string | undefined;
+  const newOwnerName = req.body.ownerName as string | undefined;
+  const newBalance = req.body.balance as number | undefined;
+  const newType = req.body.type as ACCOUNT_TYPE | undefined;
 
-    if (account) {
-        account.id = newId || account.id
-        account.ownerName = newOwnerName || account.ownerName
-        account.type = newType || account.type
+  if (!newId.startsWith("a")){
+    res.statusCode = 400;
+    throw new Error("'id' inválido. Deve iniciar com a letra 'a'.")
+  }
 
-        account.balance = isNaN(newBalance) ? account.balance : newBalance
-    }
+  if(typeof newOwnerName !== 'string' || newOwnerName.length > 2){
+    res.statusCode = 400;
+    throw new Error("Nome inválido. Deve ter no mínimo três caracteres.")
+  }
 
-    res.status(200).send("Atualização realizada com sucesso")
-})
+  if(typeof newBalance !== 'number' && newBalance < 0) {
+    res.statusCode = 404
+    throw new Error("'newBalance' deve ser do tipo 'number' e maior do que 0.")
+  }
+
+  if(newType !== ACCOUNT_TYPE.BLACK && newType !== ACCOUNT_TYPE.GOLD && newType !== ACCOUNT_TYPE.PLATINUM) {
+    res.statusCode = 404
+    throw new Error("'newType' inválido.")
+  }
+
+  const account: TAccount | undefined = accounts.find((account) => account.id === id);
+
+  if (account) {
+    account.id = newId || account.id;
+    account.ownerName = newOwnerName || account.ownerName;
+    account.type = newType || account.type;
+
+    account.balance = isNaN(newBalance) ? account.balance : newBalance;
+  }
+
+  res.status(200).send("Atualização realizada com sucesso");
+} catch (err) {
+    if (err instanceof Error) {
+        res.send(err.message);
+      } else {
+        res.send("Erro inesperado");
+  }
+}
+});
